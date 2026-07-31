@@ -15,18 +15,17 @@ import {
 
 const SAMPLE_APP_PRIVATE_KEY =
   "0x0000000000000000000000000000000000000000000000000000000000000001";
-const SAMPLE_REQUEST_ID = "friend_overlap_mainnet";
 const SAMPLE_GRANT_ID =
   "0x1111111111111111111111111111111111111111111111111111111111111111";
 
-// ═══ REAL VANA SOURCE ═══
-// Must match a published connector source from PDP-Connect/data-connectors
-// instagram, linkedin, spotify, youtube, github, etc.
-const SOURCE = "instagram";
-const DEFAULT_SCOPES = "instagram.following";
-
-const DEFAULT_SAMPLE_FIXTURES: Record<string, string> = {
-  "instagram.following": "fixtures/instagram.following.json",
+// Sample fixtures per source
+const DEFAULT_SAMPLE_FIXTURES: Record<string, Record<string, string>> = {
+  instagram: {
+    "instagram.following": "fixtures/instagram.following.json",
+  },
+  github: {
+    "github.connections": "fixtures/github.connections.json",
+  },
 };
 
 type VanaMode = "sample" | "live";
@@ -66,13 +65,6 @@ function directNetwork(): DirectNetwork {
   return process.env.VANA_NETWORK === "mainnet" ? "mainnet" : "moksha";
 }
 
-function scopes(): string[] {
-  return (process.env.VANA_SCOPES ?? DEFAULT_SCOPES)
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -93,12 +85,12 @@ function optionalEndpoints(): Partial<Record<string, string>> | undefined {
   return Object.keys(endpoints).length > 0 ? endpoints : undefined;
 }
 
-async function loadSampleDataForScope(scope: string): Promise<unknown> {
-  const envKey = `VANA_SAMPLE_DATA_PATH_${scope.replace(/\./g, "_").toUpperCase()}`;
-  let localPath = process.env[envKey] ?? process.env.VANA_SAMPLE_DATA_PATH;
+async function loadSampleDataForScope(source: string, scope: string): Promise<unknown> {
+  const envKey = `VANA_SAMPLE_DATA_PATH_${source.toUpperCase()}_${scope.replace(/\./g, "_").toUpperCase()}`;
+  let localPath = process.env[envKey] ?? process.env.VANA_SAMPLE_DATA_PATH];
 
-  if (!localPath && DEFAULT_SAMPLE_FIXTURES[scope]) {
-    localPath = DEFAULT_SAMPLE_FIXTURES[scope];
+  if (!localPath && DEFAULT_SAMPLE_FIXTURES[source]?.[scope]) {
+    localPath = DEFAULT_SAMPLE_FIXTURES[source][scope];
   }
 
   if (localPath) {
@@ -108,21 +100,15 @@ async function loadSampleDataForScope(scope: string): Promise<unknown> {
     try {
       return JSON.parse(await readFile(samplePath, "utf8")) as unknown;
     } catch (e) {
-      console.warn(`[Sample] Failed to load fixture for ${scope}: ${e}`);
+      console.warn(`[Sample] Failed to load fixture for ${source}/${scope}: ${e}`);
     }
   }
 
-  const url = process.env.VANA_SAMPLE_DATA_URL;
-  if (url) {
-    const response = await fetch(url);
-    if (response.ok) return (await response.json()) as unknown;
-  }
-
-  return generateSyntheticFixture(scope);
+  return generateSyntheticFixture(source, scope);
 }
 
-function generateSyntheticFixture(scope: string): unknown {
-  if (scope === "instagram.following") {
+function generateSyntheticFixture(source: string, scope: string): unknown {
+  if (source === "instagram" && scope === "instagram.following") {
     return {
       following: [
         { username: "alice_design", fullName: "Alice Chen", profileUrl: "https://instagram.com/alice_design" },
@@ -133,8 +119,19 @@ function generateSyntheticFixture(scope: string): unknown {
         { username: "frank_tech", fullName: "Frank Miller", profileUrl: "https://instagram.com/frank_tech" },
         { username: "grace_yoga", fullName: "Grace Hopper", profileUrl: "https://instagram.com/grace_yoga" },
         { username: "henry_food", fullName: "Henry Ford", profileUrl: "https://instagram.com/henry_food" },
-        { username: "ivy_music", fullName: "Ivy Rose", profileUrl: "https://instagram.com/ivy_music" },
-        { username: "jack_skate", fullName: "Jack Black", profileUrl: "https://instagram.com/jack_skate" },
+        { username: "ivy_music", "fullName": "Ivy Rose", profileUrl: "https://instagram.com/ivy_music" },
+        { username: "jack_skate", "fullName": "Jack Black", profileUrl: "https://instagram.com/jack_skate" },
+      ],
+    };
+  }
+  if (source === "github" && scope === "github.connections") {
+    return {
+      connections: [
+        { fullName: "Alice Chen", login: "alicechen", profileUrl: "https://github.com/alicechen", bio: "Frontend dev" },
+        { fullName: "Bob Smith", login: "bobsmith", profileUrl: "https://github.com/bobsmith", bio: "Backend engineer" },
+        { fullName: "Carla Jones", login: "carlagones", profileUrl: "https://github.com/carlagones", bio: "Open source contributor" },
+        { fullName: "David Lee", login: "davidlee", profileUrl: "https://github.com/davidlee", bio: "DevOps" },
+        { fullName: "Emma Wilson", login: "emmawilson", profileUrl: "https://github.com/emmawilson", bio: "Designer" },
       ],
     };
   }
@@ -152,8 +149,8 @@ function jsonResponse(body: unknown, status = 200): FetchResponseLike {
   };
 }
 
-function createSampleAccessClient(): AccessRequestClient {
-  const primaryScope = scopes()[0] ?? "instagram.following";
+function createSampleAccessClient(source: string, scopes: string[]): AccessRequestClient {
+  const primaryScope = scopes[0] ?? `${source}.profile`;
   const approvedStatus: AccessRequestStatus = {
     status: "approved",
     personalServerUrl: "https://personal-server.local.test",
@@ -164,7 +161,7 @@ function createSampleAccessClient(): AccessRequestClient {
   return {
     async createAccessRequest({ appAddress, returnUrl }) {
       return {
-        requestId: SAMPLE_REQUEST_ID,
+        requestId: `${source}_demo_${Date.now()}`,
         approvalUrl: returnUrl,
         appAddress,
       };
@@ -178,26 +175,25 @@ function createSampleAccessClient(): AccessRequestClient {
   };
 }
 
-function createSamplePersonalServerFetch(): PersonalServerFetch {
+function createSamplePersonalServerFetch(source: string, scopes: string[]): PersonalServerFetch {
   return async (input, init) => {
-    const allScopes = scopes();
-    const matchedScope = allScopes.find((s) => input.endsWith(dataPathForScope(s)));
+    const matchedScope = scopes.find((s) => input.endsWith(dataPathForScope(s)));
     if (!matchedScope) {
       return jsonResponse({ error: "Unknown sample data route" }, 404);
     }
     if (!init?.headers?.Authorization) {
       return jsonResponse({ error: "Missing Web3Signed auth" }, 401);
     }
-    return jsonResponse(await loadSampleDataForScope(matchedScope));
+    return jsonResponse(await loadSampleDataForScope(source, matchedScope));
   };
 }
 
-function createConfiguredController(): DirectDataController {
+export function createVanaController(source: string, scopes: string[]): DirectDataController {
   const mode = vanaMode();
   const shared = {
     app: appConfig(),
-    source: SOURCE,
-    scopes: scopes(),
+    source,
+    scopes,
   };
 
   if (mode === "sample") {
@@ -205,8 +201,8 @@ function createConfiguredController(): DirectDataController {
       ...shared,
       network: "moksha",
       appPrivateKey: SAMPLE_APP_PRIVATE_KEY,
-      accessRequestClient: createSampleAccessClient(),
-      personalServerFetch: createSamplePersonalServerFetch(),
+      accessRequestClient: createSampleAccessClient(source, scopes),
+      personalServerFetch: createSamplePersonalServerFetch(source, scopes),
     });
   }
 
@@ -219,22 +215,16 @@ function createConfiguredController(): DirectDataController {
   });
 }
 
-let controller: DirectDataController | undefined;
-
-export function getVanaController(): DirectDataController {
-  controller ??= createConfiguredController();
-  return controller;
-}
-
-export function getAppInfo(): AppInfo {
+export function getAppInfo(source: string, scopes: string[]): AppInfo {
   const mode = vanaMode();
   const app = appConfig();
   let appAddress = "Set VANA_APP_PRIVATE_KEY";
 
-  if (mode === "sample") {
-    appAddress = getVanaController().getAppAddress();
-  } else if (process.env.VANA_APP_PRIVATE_KEY) {
-    appAddress = getVanaController().getAppAddress();
+  try {
+    const ctrl = createVanaController(source, scopes);
+    appAddress = ctrl.getAppAddress();
+  } catch {
+    // sample mode or missing key
   }
 
   return {
@@ -244,8 +234,8 @@ export function getAppInfo(): AppInfo {
     appUrl: app.homepageUrl,
     mode,
     network: directNetwork(),
-    scopes: scopes(),
-    source: SOURCE,
+    scopes,
+    source,
   };
 }
 

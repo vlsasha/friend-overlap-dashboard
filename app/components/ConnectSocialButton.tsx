@@ -5,6 +5,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 interface AccessRequest {
   requestId: string;
   approvalUrl: string;
+  source: string;
+  scopes: string[];
 }
 
 interface AccessStatus {
@@ -22,7 +24,7 @@ interface VanaResult {
 
 type ConnectState =
   | { type: "idle" }
-  | { type: "creating" }
+  | { type: "creating"; platform: string }
   | { type: "awaiting_approval"; request: AccessRequest; popupBlocked: boolean }
   | { type: "reading"; request: AccessRequest }
   | { type: "done"; request: AccessRequest; result: VanaResult }
@@ -62,14 +64,18 @@ function useVanaConnect({ onResult }: { onResult?: (result: VanaResult) => void 
     setState({ type: "idle" });
   }, [clearPoll]);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (source: string, scope: string) => {
     if (state.type !== "idle" && state.type !== "done" && state.type !== "error") return;
 
     clearPoll();
-    setState({ type: "creating" });
+    setState({ type: "creating", platform: source });
 
     try {
-      const request = await readJson<AccessRequest>("/api/vana/request", { method: "POST" });
+      const request = await readJson<AccessRequest>("/api/vana/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source, scopes: [scope] }),
+      });
       setState({ type: "awaiting_approval", request, popupBlocked: false });
 
       const width = 520;
@@ -91,7 +97,7 @@ function useVanaConnect({ onResult }: { onResult?: (result: VanaResult) => void 
       pollRef.current = setInterval(async () => {
         try {
           const status = await readJson<AccessStatus>(
-            `/api/vana/status?requestId=${encodeURIComponent(request.requestId)}`
+            `/api/vana/status?requestId=${encodeURIComponent(request.requestId)}&source=${source}&scope=${scope}`
           );
 
           if (status.status === "approved") {
@@ -102,7 +108,7 @@ function useVanaConnect({ onResult }: { onResult?: (result: VanaResult) => void 
             setState({ type: "reading", request });
 
             const result = await readJson<VanaResult>(
-              `/api/vana/data?requestId=${encodeURIComponent(request.requestId)}`
+              `/api/vana/data?requestId=${encodeURIComponent(request.requestId)}&source=${source}&scope=${scope}`
             );
             setState({ type: "done", request, result });
             onResult?.(result);
@@ -111,7 +117,7 @@ function useVanaConnect({ onResult }: { onResult?: (result: VanaResult) => void 
             setState({ type: "error", error: new Error("Access request was denied by user") });
           }
         } catch (err) {
-          // Keep polling on transient errors
+          // Keep polling
         }
       }, 1000);
 
@@ -137,7 +143,7 @@ function stateLabel(stateType: string): string {
   switch (stateType) {
     case "creating": return "Creating access request...";
     case "awaiting_approval": return "Waiting for your approval...";
-    case "reading": return "Reading your Instagram data...";
+    case "reading": return "Reading your data...";
     case "done": return "Data ready!";
     case "error": return "Something went wrong";
     default: return "Ready to connect";
@@ -151,17 +157,32 @@ export function ConnectSocialButton({ onResult }: { onResult?: (result: unknown)
 
   const canStart = state.type === "idle" || state.type === "done" || state.type === "error";
 
+  const handleInstagram = () => connect("instagram", "instagram.following");
+  const handleGitHub = () => connect("github", "github.connections");
+
   return (
     <div style={{ textAlign: "center" }}>
-      <button
-        className="btn btn-primary"
-        onClick={connect}
-        disabled={!canStart}
-        style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0 auto", fontSize: "1.1rem", padding: "1rem 2.5rem" }}
-      >
-        {state.type === "creating" && <span className="loading-spinner" />}
-        {canStart ? "📸 Connect Instagram" : stateLabel(state.type)}
-      </button>
+      <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleInstagram}
+          disabled={!canStart}
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1rem", padding: "0.9rem 1.8rem", background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}
+        >
+          {state.type === "creating" && state.platform === "instagram" && <span className="loading-spinner" />}
+          📸 Instagram (Desktop)
+        </button>
+
+        <button
+          className="btn btn-primary"
+          onClick={handleGitHub}
+          disabled={!canStart}
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1rem", padding: "0.9rem 1.8rem", background: "linear-gradient(135deg, #24292e, #586069)" }}
+        >
+          {state.type === "creating" && state.platform === "github" && <span className="loading-spinner" />}
+          🐙 GitHub (Web)
+        </button>
+      </div>
 
       {state.type === "awaiting_approval" && (
         <div style={{ marginTop: "1.25rem" }}>

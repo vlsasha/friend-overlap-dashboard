@@ -16,7 +16,7 @@ export default function Home() {
           alt="Friend Overlap Dashboard" 
           style={{ maxWidth: '320px', width: '100%', height: 'auto', marginBottom: '1rem' }} 
         />
-        <p>Analyze your Instagram network with Vana Data Portability</p>
+        <p>Analyze your social graph with Vana Data Portability</p>
       </header>
 
       <section className="connect-section">
@@ -32,22 +32,22 @@ export default function Home() {
             <div className="step">
               <div className="step-num">1</div>
               <div className="step-text">
-                <strong>Request</strong>
-                <span>Your app asks Vana for access to your Instagram data</span>
+                <strong>Choose Platform</strong>
+                <span>Instagram (via Desktop) or GitHub (via Web OAuth)</span>
               </div>
             </div>
             <div className="step">
               <div className="step-num">2</div>
               <div className="step-text">
                 <strong>Approve</strong>
-                <span>You grant permission in your Vana Account — data stays encrypted on your device</span>
+                <span>Grant access in your Vana Account — data stays encrypted</span>
               </div>
             </div>
             <div className="step">
               <div className="step-num">3</div>
               <div className="step-text">
                 <strong>Analyze</strong>
-                <span>We read your following list and show insights — every access is logged on-chain</span>
+                <span>Explore your network with search, stats, and insights</span>
               </div>
             </div>
           </div>
