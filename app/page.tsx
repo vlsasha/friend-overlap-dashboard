@@ -16,7 +16,7 @@ export default function Home() {
           alt="Friend Overlap Dashboard" 
           style={{ maxWidth: '320px', width: '100%', height: 'auto', marginBottom: '1rem' }} 
         />
-        <p>Discover who connects you across Instagram and LinkedIn — powered by Vana</p>
+        <p>Analyze your Instagram network with Vana Data Portability</p>
       </header>
 
       <section className="connect-section">
@@ -33,21 +33,21 @@ export default function Home() {
               <div className="step-num">1</div>
               <div className="step-text">
                 <strong>Request</strong>
-                <span>Your app asks Vana for access to your social data</span>
+                <span>Your app asks Vana for access to your Instagram data</span>
               </div>
             </div>
             <div className="step">
               <div className="step-num">2</div>
               <div className="step-text">
                 <strong>Approve</strong>
-                <span>You grant permission in your Vana Account — data stays encrypted</span>
+                <span>You grant permission in your Vana Account — data stays encrypted on your device</span>
               </div>
             </div>
             <div className="step">
               <div className="step-num">3</div>
               <div className="step-text">
                 <strong>Analyze</strong>
-                <span>We find overlapping contacts and show insights — no data leaves your control</span>
+                <span>We read your following list and show insights — every access is logged on-chain</span>
               </div>
             </div>
           </div>

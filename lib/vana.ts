@@ -13,19 +13,20 @@ import {
   type FetchResponseLike,
 } from "@opendatalabs/vana-sdk/server";
 
-// ── Sample mode constants ──
 const SAMPLE_APP_PRIVATE_KEY =
   "0x0000000000000000000000000000000000000000000000000000000000000001";
 const SAMPLE_REQUEST_ID = "friend_overlap_mainnet";
 const SAMPLE_GRANT_ID =
   "0x1111111111111111111111111111111111111111111111111111111111111111";
 
-const SOURCE = "social";
-const DEFAULT_SCOPES = "instagram.following,linkedin.connections";
+// ═══ REAL VANA SOURCE ═══
+// Must match a published connector source from PDP-Connect/data-connectors
+// instagram, linkedin, spotify, youtube, github, etc.
+const SOURCE = "instagram";
+const DEFAULT_SCOPES = "instagram.following";
 
 const DEFAULT_SAMPLE_FIXTURES: Record<string, string> = {
   "instagram.following": "fixtures/instagram.following.json",
-  "linkedin.connections": "fixtures/linkedin.connections.json",
 };
 
 type VanaMode = "sample" | "live";
@@ -134,22 +135,6 @@ function generateSyntheticFixture(scope: string): unknown {
         { username: "henry_food", fullName: "Henry Ford", profileUrl: "https://instagram.com/henry_food" },
         { username: "ivy_music", fullName: "Ivy Rose", profileUrl: "https://instagram.com/ivy_music" },
         { username: "jack_skate", fullName: "Jack Black", profileUrl: "https://instagram.com/jack_skate" },
-      ],
-    };
-  }
-  if (scope === "linkedin.connections") {
-    return {
-      connections: [
-        { fullName: "Alice Chen", headline: "Product Designer at TechCo", profileUrl: "https://linkedin.com/in/alicechen", dateConnected: "2024-01-15" },
-        { fullName: "Bob Smith", headline: "Software Engineer at StartupX", profileUrl: "https://linkedin.com/in/bobsmith", dateConnected: "2023-11-20" },
-        { fullName: "Carla Jones", headline: "Travel Blogger & Content Creator", profileUrl: "https://linkedin.com/in/carlagones", dateConnected: "2024-02-10" },
-        { fullName: "David Lee", headline: "Photographer | Visual Artist", profileUrl: "https://linkedin.com/in/davidlee", dateConnected: "2023-09-05" },
-        { fullName: "Emma Wilson", headline: "Art Director at CreativeAgency", profileUrl: "https://linkedin.com/in/emmawilson", dateConnected: "2024-03-01" },
-        { fullName: "Frank Miller", headline: "CTO at BigCorp", profileUrl: "https://linkedin.com/in/frankmiller", dateConnected: "2024-03-10" },
-        { fullName: "Grace Hopper", headline: "Engineering Manager at TechGiant", profileUrl: "https://linkedin.com/in/gracehopper", dateConnected: "2024-02-05" },
-        { fullName: "Kevin Space", headline: "Data Scientist at AI Labs", profileUrl: "https://linkedin.com/in/kevinspace", dateConnected: "2024-04-12" },
-        { fullName: "Laura Moon", headline: "Marketing Director", profileUrl: "https://linkedin.com/in/lauramoon", dateConnected: "2024-01-20" },
-        { fullName: "Mike Ross", headline: "Legal Consultant", profileUrl: "https://linkedin.com/in/mikeross", dateConnected: "2023-12-15" },
       ],
     };
   }

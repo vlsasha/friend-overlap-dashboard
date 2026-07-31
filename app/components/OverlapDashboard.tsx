@@ -1,120 +1,67 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-interface Contact {
-  name: string;
-  raw: unknown;
-  platform: "instagram" | "linkedin";
-  url?: string;
-  meta?: string;
+interface IgContact {
+  username: string;
+  fullName: string;
+  profileUrl: string;
 }
 
-interface OverlapResult {
-  instagramOnly: Contact[];
-  linkedinOnly: Contact[];
-  both: Contact[];
-  stats: {
-    instagramTotal: number;
-    linkedinTotal: number;
-    overlapCount: number;
-    overlapPercent: number;
-  };
+interface IgAnalysis {
+  contacts: IgContact[];
+  total: number;
+  topUsernames: string[];
+  nameLengths: { short: number; medium: number; long: number };
 }
 
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s]/g, "")
-    .replace(/\s+/g, " ");
-}
-
-function extractContacts(data: unknown, platform: "instagram" | "linkedin"): Contact[] {
+function extractFollowing(data: unknown): IgContact[] {
   if (!data || typeof data !== "object") return [];
   const record = data as Record<string, unknown>;
-  const contacts: Contact[] = [];
+  const following = Array.isArray(record.following) ? record.following : [];
+  const contacts: IgContact[] = [];
 
-  if (platform === "instagram") {
-    const following = Array.isArray(record.following) ? record.following : Array.isArray(record.followers) ? record.followers : [];
-    for (const item of following) {
-      if (!item || typeof item !== "object") continue;
-      const it = item as Record<string, unknown>;
-      const name = String(it.fullName ?? it.name ?? it.displayName ?? it.username ?? "");
-      if (!name) continue;
-      contacts.push({
-        name,
-        raw: item,
-        platform: "instagram",
-        url: String(it.profileUrl ?? it.url ?? ""),
-        meta: String(it.username ?? ""),
-      });
-    }
-  } else {
-    const connections = Array.isArray(record.connections) ? record.connections : [];
-    for (const item of connections) {
-      if (!item || typeof item !== "object") continue;
-      const it = item as Record<string, unknown>;
-      const name = String(it.fullName ?? it.name ?? "");
-      if (!name) continue;
-      contacts.push({
-        name,
-        raw: item,
-        platform: "linkedin",
-        url: String(it.profileUrl ?? it.url ?? ""),
-        meta: String(it.headline ?? ""),
-      });
-    }
+  for (const item of following) {
+    if (!item || typeof item !== "object") continue;
+    const it = item as Record<string, unknown>;
+    contacts.push({
+      username: String(it.username ?? ""),
+      fullName: String(it.fullName ?? it.name ?? it.displayName ?? ""),
+      profileUrl: String(it.profileUrl ?? it.url ?? ""),
+    });
   }
 
-  return contacts;
+  return contacts.filter((c) => c.username || c.fullName);
 }
 
-function analyzeOverlap(instagramData: unknown, linkedinData: unknown): OverlapResult {
-  const igContacts = extractContacts(instagramData, "instagram");
-  const liContacts = extractContacts(linkedinData, "linkedin");
+function analyzeFollowing(data: unknown): IgAnalysis {
+  const contacts = extractFollowing(data);
+  const nameLengths = { short: 0, medium: 0, long: 0 };
 
-  const igNames = new Map<string, Contact>();
-  for (const c of igContacts) {
-    igNames.set(normalizeName(c.name), c);
+  for (const c of contacts) {
+    const len = c.fullName.length;
+    if (len <= 8) nameLengths.short++;
+    else if (len <= 15) nameLengths.medium++;
+    else nameLengths.long++;
   }
 
-  const both: Contact[] = [];
-  const linkedinOnly: Contact[] = [];
-
-  for (const c of liContacts) {
-    const normalized = normalizeName(c.name);
-    if (igNames.has(normalized)) {
-      both.push(c);
-      igNames.delete(normalized);
-    } else {
-      linkedinOnly.push(c);
-    }
-  }
-
-  const instagramOnly = Array.from(igNames.values());
-
-  const igTotal = igContacts.length;
-  const liTotal = liContacts.length;
-  const overlap = both.length;
-  const overlapPercent = igTotal > 0 ? Math.round((overlap / igTotal) * 100) : 0;
+  const topUsernames = contacts
+    .slice()
+    .sort((a, b) => a.username.localeCompare(b.username))
+    .slice(0, 5)
+    .map((c) => c.username);
 
   return {
-    instagramOnly,
-    linkedinOnly,
-    both,
-    stats: {
-      instagramTotal: igTotal,
-      linkedinTotal: liTotal,
-      overlapCount: overlap,
-      overlapPercent,
-    },
+    contacts,
+    total: contacts.length,
+    topUsernames,
+    nameLengths,
   };
 }
 
 function Avatar({ name }: { name: string }) {
   const initial = name.charAt(0).toUpperCase();
-  const colors = ["#e94560", "#00a0dc", "#fcb045", "#48bb78", "#9f7aea", "#ed8936"];
+  const colors = ["#e94560", "#fcb045", "#48bb78", "#9f7aea", "#00a0dc", "#ed8936"];
   const color = colors[name.length % colors.length];
   return (
     <div className="contact-avatar" style={{ background: `linear-gradient(135deg, ${color}, ${color}88)` }}>
@@ -123,139 +70,105 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
-function ContactCard({ contact }: { contact: Contact }) {
-  return (
-    <li className="contact-item">
-      <Avatar name={contact.name} />
-      <div className="contact-info">
-        <div className="contact-name">{contact.name}</div>
-        {contact.meta && <div className="contact-meta">{contact.meta}</div>}
-      </div>
-    </li>
-  );
-}
-
 export function OverlapDashboard({ data }: { data: Record<string, unknown> }) {
-  const result = useMemo(() => {
-    const instagramData = data["instagram.following"] ?? data["instagram"] ?? {};
-    const linkedinData = data["linkedin.connections"] ?? data["linkedin"] ?? {};
-    return analyzeOverlap(instagramData, linkedinData);
+  const [search, setSearch] = useState("");
+
+  const analysis = useMemo(() => {
+    const igData = data["instagram.following"] ?? data["instagram"] ?? {};
+    return analyzeFollowing(igData);
   }, [data]);
 
-  const { stats, both, instagramOnly, linkedinOnly } = result;
+  const filtered = useMemo(() => {
+    if (!search.trim()) return analysis.contacts;
+    const q = search.toLowerCase();
+    return analysis.contacts.filter(
+      (c) => c.username.toLowerCase().includes(q) || c.fullName.toLowerCase().includes(q)
+    );
+  }, [analysis.contacts, search]);
+
+  const { total, nameLengths } = analysis;
 
   return (
     <div className="dashboard">
       {/* Stats */}
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="number">{stats.instagramTotal}</div>
-          <div className="label">Instagram Following</div>
+          <div className="number">{total}</div>
+          <div className="label">Total Following</div>
         </div>
         <div className="stat-card">
-          <div className="number">{stats.linkedinTotal}</div>
-          <div className="label">LinkedIn Connections</div>
+          <div className="number" style={{ color: "var(--success)" }}>{nameLengths.short}</div>
+          <div className="label">Short Names (≤8)</div>
         </div>
         <div className="stat-card">
-          <div className="number" style={{ color: "var(--success)" }}>{stats.overlapCount}</div>
-          <div className="label">Mutual Contacts</div>
+          <div className="number" style={{ color: "var(--warning)" }}>{nameLengths.medium}</div>
+          <div className="label">Medium Names (9–15)</div>
         </div>
         <div className="stat-card">
-          <div className="number" style={{ color: "var(--warning)" }}>{stats.overlapPercent}%</div>
-          <div className="label">Overlap Rate</div>
+          <div className="number" style={{ color: "var(--info)" }}>{nameLengths.long}</div>
+          <div className="label">Long Names (16+)</div>
         </div>
       </div>
 
-      {/* Venn Diagram */}
+      {/* Search */}
       <div className="venn-section">
-        <h3>🎯 Platform Overlap</h3>
-        <div className="venn-diagram">
-          <div className="venn-circle instagram">
-            <span>Instagram</span>
-            <strong>{stats.instagramTotal}</strong>
-          </div>
-          <div className="venn-overlap">{stats.overlapCount}</div>
-          <div className="venn-circle linkedin">
-            <span>LinkedIn</span>
-            <strong>{stats.linkedinTotal}</strong>
-          </div>
-        </div>
+        <h3>🔍 Search Your Following</h3>
+        <input
+          type="text"
+          placeholder="Type username or name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "0.875rem 1rem",
+            borderRadius: "12px",
+            border: "1px solid var(--border)",
+            background: "var(--bg-secondary)",
+            color: "var(--text-primary)",
+            fontSize: "1rem",
+            outline: "none",
+            marginTop: "0.5rem",
+          }}
+        />
       </div>
 
-      {/* Overlap Table */}
-      {both.length > 0 && (
-        <div className="venn-section">
-          <h3>👥 People You Know on Both Platforms</h3>
-          <table className="overlap-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Instagram Handle</th>
-                <th>LinkedIn Headline</th>
-              </tr>
-            </thead>
-            <tbody>
-              {both.map((contact, i) => {
-                const raw = contact.raw as Record<string, unknown>;
-                const igUsername = raw && typeof raw === "object" && "username" in raw ? String(raw.username) : "—";
-                const liHeadline = raw && typeof raw === "object" && "headline" in raw ? String(raw.headline).slice(0, 40) + (String(raw.headline).length > 40 ? "..." : "") : "—";
-                return (
-                  <tr key={i}>
-                    <td style={{ fontWeight: 600 }}>{contact.name}</td>
-                    <td><span className="platform-tag instagram">@{igUsername}</span></td>
-                    <td><span className="platform-tag linkedin">{liHeadline}</span></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {both.length === 0 && (
-        <div className="venn-section" style={{ textAlign: "center", padding: "3rem" }}>
-          <h3>🔍 No Overlaps Found</h3>
-          <p style={{ color: "var(--text-secondary)" }}>
-            Your Instagram and LinkedIn networks don&apos;t share any contacts by name.
-            <br />
-            This could mean your networks are distinct, or names differ between platforms.
+      {/* Contact List */}
+      <div className="venn-section">
+        <h3>📸 Instagram Following ({filtered.length} shown)</h3>
+        <ul className="contact-list">
+          {filtered.map((contact, i) => (
+            <li key={i} className="contact-item">
+              <Avatar name={contact.fullName || contact.username} />
+              <div className="contact-info">
+                <div className="contact-name">{contact.fullName || contact.username}</div>
+                {contact.username && contact.fullName && contact.username !== contact.fullName && (
+                  <div className="contact-meta">@{contact.username}</div>
+                )}
+              </div>
+              {contact.profileUrl && (
+                <a
+                  href={contact.profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    marginLeft: "auto",
+                    color: "var(--accent)",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    textDecoration: "none",
+                  }}
+                >
+                  View →
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+        {filtered.length === 0 && (
+          <p style={{ textAlign: "center", color: "var(--text-secondary)", padding: "2rem" }}>
+            No contacts match your search.
           </p>
-        </div>
-      )}
-
-      {/* Platform breakdown */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
-        <div className="source-section">
-          <h3>
-            <span style={{ color: "#fcb045" }}>📸</span> Instagram Only ({instagramOnly.length})
-          </h3>
-          <ul className="contact-list">
-            {instagramOnly.slice(0, 30).map((c, i) => (
-              <ContactCard key={i} contact={c} />
-            ))}
-            {instagramOnly.length > 30 && (
-              <li className="contact-item" style={{ color: "var(--text-secondary)", justifyContent: "center", padding: "1rem" }}>
-                +{instagramOnly.length - 30} more contacts
-              </li>
-            )}
-          </ul>
-        </div>
-
-        <div className="source-section">
-          <h3>
-            <span style={{ color: "#00a0dc" }}>💼</span> LinkedIn Only ({linkedinOnly.length})
-          </h3>
-          <ul className="contact-list">
-            {linkedinOnly.slice(0, 30).map((c, i) => (
-              <ContactCard key={i} contact={c} />
-            ))}
-            {linkedinOnly.length > 30 && (
-              <li className="contact-item" style={{ color: "var(--text-secondary)", justifyContent: "center", padding: "1rem" }}>
-                +{linkedinOnly.length - 30} more contacts
-              </li>
-            )}
-          </ul>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -137,7 +137,7 @@ function stateLabel(stateType: string): string {
   switch (stateType) {
     case "creating": return "Creating access request...";
     case "awaiting_approval": return "Waiting for your approval...";
-    case "reading": return "Reading your social data...";
+    case "reading": return "Reading your Instagram data...";
     case "done": return "Data ready!";
     case "error": return "Something went wrong";
     default: return "Ready to connect";
@@ -160,7 +160,7 @@ export function ConnectSocialButton({ onResult }: { onResult?: (result: unknown)
         style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0 auto", fontSize: "1.1rem", padding: "1rem 2.5rem" }}
       >
         {state.type === "creating" && <span className="loading-spinner" />}
-        {canStart ? "🔗 Connect Instagram + LinkedIn" : stateLabel(state.type)}
+        {canStart ? "📸 Connect Instagram" : stateLabel(state.type)}
       </button>
 
       {state.type === "awaiting_approval" && (
