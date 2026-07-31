@@ -1,0 +1,54 @@
+{
+  "following": [
+    {
+      "username": "alice_design",
+      "fullName": "Alice Chen",
+      "profileUrl": "https://instagram.com/alice_design"
+    },
+    {
+      "username": "bob_codes",
+      "fullName": "Bob Smith",
+      "profileUrl": "https://instagram.com/bob_codes"
+    },
+    {
+      "username": "carla_travels",
+      "fullName": "Carla Jones",
+      "profileUrl": "https://instagram.com/carla_travels"
+    },
+    {
+      "username": "david_photo",
+      "fullName": "David Lee",
+      "profileUrl": "https://instagram.com/david_photo"
+    },
+    {
+      "username": "emma_art",
+      "fullName": "Emma Wilson",
+      "profileUrl": "https://instagram.com/emma_art"
+    },
+    {
+      "username": "frank_tech",
+      "fullName": "Frank Miller",
+      "profileUrl": "https://instagram.com/frank_tech"
+    },
+    {
+      "username": "grace_yoga",
+      "fullName": "Grace Hopper",
+      "profileUrl": "https://instagram.com/grace_yoga"
+    },
+    {
+      "username": "henry_food",
+      "fullName": "Henry Ford",
+      "profileUrl": "https://instagram.com/henry_food"
+    },
+    {
+      "username": "ivy_music",
+      "fullName": "Ivy Rose",
+      "profileUrl": "https://instagram.com/ivy_music"
+    },
+    {
+      "username": "jack_skate",
+      "fullName": "Jack Black",
+      "profileUrl": "https://instagram.com/jack_skate"
+    }
+  ]
+}
